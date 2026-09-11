@@ -12,6 +12,7 @@
                     <nav class="flex items-center gap-4 text-sm">
                         <Link href="/dashboard" class="text-gray-600 hover:text-gray-900">Dashboard</Link>
                         <Link href="/documents" class="text-gray-600 hover:text-gray-900">Dokumen</Link>
+                        <Link href="/kinerja" class="text-gray-600 hover:text-gray-900">Kinerja</Link>
                     </nav>
                 {/if}
             </div>
