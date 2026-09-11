@@ -56,7 +56,7 @@ class KinerjaController extends Controller
     {
         $this->authorizeTree($request, $tree);
 
-        $tree->load(['nodes.indicators', 'links']);
+        $tree->load(['nodes.indicators', 'links', 'reviews.user']);
 
         return Inertia::render('Kinerja/Show', [
             'tree' => [
@@ -84,6 +84,14 @@ class KinerjaController extends Controller
                     'parent_node_id' => $l->parent_node_id,
                     'child_node_id' => $l->child_node_id,
                     'reason' => $l->reason,
+                ]),
+                'reviews' => $tree->reviews->map(fn ($r) => [
+                    'id' => $r->id,
+                    'node_id' => $r->node_id,
+                    'decision' => $r->decision,
+                    'comment' => $r->comment,
+                    'user' => $r->user?->name,
+                    'created_at' => $r->created_at?->toISOString(),
                 ]),
             ],
         ]);

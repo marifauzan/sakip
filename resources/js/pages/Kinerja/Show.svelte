@@ -15,6 +15,8 @@
         target: '',
     });
 
+    const reviewForm = useForm({ node_id: '', decision: 'comment', comment: '' });
+
     // State AI per node (kita simpan hasil sementara di client)
     let aiChildren = $state({});   // nodeId -> [{statement, relationship_reason, ...}]
     let aiIndicators = $state({}); // nodeId -> [{name, ...}]
@@ -239,5 +241,44 @@
                 <button type="submit" disabled={linkForm.processing} class="rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-50">Hubungkan</button>
             </form>
         {/if}
+
+        <!-- Ekspor -->
+        <div class="rounded-lg border border-gray-200 bg-white p-4 flex items-center gap-3">
+            <h3 class="font-semibold">Ekspor</h3>
+            <a href={`/kinerja/${tree.id}/export?format=markdown`} class="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-700">Markdown</a>
+            <a href={`/kinerja/${tree.id}/export?format=json`} class="rounded-md bg-gray-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-700">JSON</a>
+        </div>
+
+        <!-- Reviu -->
+        <div class="rounded-lg border border-gray-200 bg-white p-4 space-y-4">
+            <h3 class="font-semibold">Reviu & Persetujuan</h3>
+            <form onsubmit={(e) => { e.preventDefault(); reviewForm.post(`/kinerja/${tree.id}/reviews`, { preserveScroll: true, onSuccess: () => reviewForm.reset('comment') }); }} class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <select bind:value={reviewForm.node_id} class="rounded-md border border-gray-300 px-3 py-2 text-sm">
+                        <option value="">— Seluruh rancangan —</option>
+                        {#each nodes as node (node.id)}<option value={node.id}>{nodeLabel(node.id)}</option>{/each}
+                    </select>
+                    <select bind:value={reviewForm.decision} class="rounded-md border border-gray-300 px-3 py-2 text-sm">
+                        <option value="comment">Komentar</option>
+                        <option value="approve">Setujui</option>
+                        <option value="reject">Tolak</option>
+                    </select>
+                </div>
+                <textarea bind:value={reviewForm.comment} rows="2" placeholder="Catatan reviu…" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"></textarea>
+                <button type="submit" disabled={reviewForm.processing} class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">Simpan Reviu</button>
+            </form>
+
+            {#if (tree.reviews ?? []).length > 0}
+                <div class="space-y-2">
+                    {#each tree.reviews as r (r.id)}
+                        <div class="rounded border border-gray-100 bg-gray-50 p-2 text-sm">
+                            <span class="font-medium text-gray-700">{r.user ?? '—'}</span>
+                            <span class="ml-2 rounded px-1.5 py-0.5 text-xs {r.decision === 'approve' ? 'bg-green-100 text-green-700' : r.decision === 'reject' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}">{r.decision}</span>
+                            {#if r.comment}<p class="mt-1 text-gray-600">{r.comment}</p>{/if}
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        </div>
     </div>
 </Layout>

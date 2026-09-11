@@ -32,4 +32,9 @@ class KinerjaTree extends Model
     {
         return $this->hasMany(NodeLink::class, 'tree_id');
     }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'tree_id');
+    }
 }
