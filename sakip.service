@@ -1,0 +1,18 @@
+# /etc/systemd/system/sakip.service
+[Unit]
+Description=SAKIP (Laravel + FrankenPHP)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/sakip
+EnvironmentFile=/home/ubuntu/sakip/.env
+ExecStart=/usr/local/bin/frankenphp run --config /home/ubuntu/sakip/Caddyfile
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

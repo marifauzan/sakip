@@ -1,0 +1,11 @@
+{
+    frankenphp
+    order php_server before file_server
+}
+
+sakip.mar-iworks.com {
+    root * /home/ubuntu/sakip/public
+    php_server
+    encode zstd gzip
+    file_server
+}

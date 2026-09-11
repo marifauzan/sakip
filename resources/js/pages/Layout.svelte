@@ -1,5 +1,5 @@
 <script>
-    let { title = 'SAKIP' } = $props();
+    let { children, auth = null } = $props();
 </script>
 
 <div class="min-h-screen">
