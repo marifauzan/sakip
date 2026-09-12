@@ -1,9 +1,11 @@
 {
     frankenphp
     order php_server before file_server
+    admin 127.0.0.1:2020
 }
 
-sakip.mar-iworks.com {
+# Bind ke localhost:8080 (TLS ditangani proxy pusat di sakp Caddyfile)
+:8080 {
     root * /home/ubuntu/sakip/public
     php_server
     encode zstd gzip

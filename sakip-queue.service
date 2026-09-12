@@ -1,0 +1,17 @@
+# /etc/systemd/system/sakip-queue.service
+[Unit]
+Description=SAKIP Queue Worker
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/sakip
+EnvironmentFile=/home/ubuntu/sakip/.env
+ExecStart=/usr/bin/php /home/ubuntu/sakip/artisan queue:work --sleep=3 --tries=3 --timeout=120
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

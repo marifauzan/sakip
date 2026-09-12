@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Aplikasi berada di belakang reverse proxy Caddy (HTTPS di-terminate
+        // di proxy). Trust proxy agar Laravel generate URL https yang benar.
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
