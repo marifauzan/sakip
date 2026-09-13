@@ -10,6 +10,12 @@ class AiRecommendation extends Model
 {
     use HasFactory;
 
+    public const KIND_CHILDREN = 'recommend_children';
+
+    public const KIND_INDICATORS = 'recommend_indicators';
+
+    public const KIND_SECTOR = 'detect_sector';
+
     protected $fillable = [
         'organization_id', 'tree_id', 'node_id', 'kind', 'model',
         'prompt_version', 'context_summary', 'output', 'decision',

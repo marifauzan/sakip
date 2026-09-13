@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,7 +36,7 @@ class Node extends Model
         return $this->hasMany(NodeLink::class, 'child_node_id');
     }
 
-    public function children(): \Illuminate\Database\Eloquent\Collection
+    public function children(): Collection
     {
         return $this->childLinks()->with('child')->get()->map->child;
     }

@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiRecommendation;
 use App\Models\Indicator;
 use App\Models\KinerjaTree;
 use App\Models\Node;
 use App\Models\NodeLink;
+use App\Models\Sector;
 use App\Services\DagValidator;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class KinerjaController extends Controller
@@ -18,6 +21,7 @@ class KinerjaController extends Controller
 
         $trees = KinerjaTree::query()
             ->where('organization_id', $org)
+            ->with(['sector:id,name'])
             ->withCount('nodes')
             ->latest()
             ->get()
@@ -28,21 +32,48 @@ class KinerjaController extends Controller
                 'period_end' => $t->period_end,
                 'status' => $t->status,
                 'nodes_count' => $t->nodes_count,
+                'sector_id' => $t->sector_id,
+                'sector' => $t->sector ? [
+                    'id' => $t->sector->id,
+                    'name' => $t->sector->name,
+                ] : null,
             ]);
 
-        return Inertia::render('Kinerja/Index', ['trees' => $trees]);
+        $sectors = Sector::query()
+            ->where(fn ($q) => $q->whereNull('organization_id')->orWhere('organization_id', $org))
+            ->orderByRaw('CASE WHEN organization_id IS NULL THEN 0 ELSE 1 END, name ASC')
+            ->get(['id', 'name', 'organization_id'])
+            ->map(fn (Sector $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'is_global' => is_null($s->organization_id),
+            ]);
+
+        return Inertia::render('Kinerja/Index', [
+            'trees' => $trees,
+            'sectors' => $sectors,
+        ]);
     }
 
     public function store(Request $request)
     {
+        $org = $request->user()->organization_id;
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'period_start' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'period_end' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'sector_id' => [
+                'nullable',
+                Rule::exists('sectors', 'id')->where(function ($q) use ($org) {
+                    $q->whereNull('organization_id')->orWhere('organization_id', $org);
+                }),
+            ],
         ]);
 
         $tree = KinerjaTree::create([
-            'organization_id' => $request->user()->organization_id,
+            'organization_id' => $org,
+            'sector_id' => $data['sector_id'] ?? null,
             'name' => $data['name'],
             'period_start' => $data['period_start'] ?? null,
             'period_end' => $data['period_end'] ?? null,
@@ -56,13 +87,28 @@ class KinerjaController extends Controller
     {
         $this->authorizeTree($request, $tree);
 
-        $tree->load(['nodes.indicators', 'links', 'reviews.user']);
+        $tree->load(['sector:id,name,description', 'nodes.indicators', 'links', 'reviews.user']);
+
+        $pendingRecs = AiRecommendation::query()
+            ->where('tree_id', $tree->id)
+            ->where('decision', 'pending')
+            ->latest('id')
+            ->get();
+
+        $pendingIndicatorsByNode = $pendingRecs->where('kind', AiRecommendation::KIND_INDICATORS)->keyBy('node_id');
+        $pendingChildrenByNode = $pendingRecs->where('kind', AiRecommendation::KIND_CHILDREN)->keyBy('node_id');
 
         return Inertia::render('Kinerja/Show', [
             'tree' => [
                 'id' => $tree->id,
                 'name' => $tree->name,
                 'status' => $tree->status,
+                'sector_id' => $tree->sector_id,
+                'sector' => $tree->sector ? [
+                    'id' => $tree->sector->id,
+                    'name' => $tree->sector->name,
+                    'description' => $tree->sector->description,
+                ] : null,
                 'nodes' => $tree->nodes->map(fn (Node $n) => [
                     'id' => $n->id,
                     'code' => $n->code,
@@ -78,6 +124,10 @@ class KinerjaController extends Controller
                         'baseline' => $i->baseline,
                         'target' => $i->target,
                     ]),
+                    'pending_ai_indicators' => $pendingIndicatorsByNode->get($n->id)?->output['indicators'] ?? [],
+                    'pending_ai_children' => $pendingChildrenByNode->get($n->id)?->output['recommendations'] ?? [],
+                    'pending_indicator_recommendation_id' => $pendingIndicatorsByNode->get($n->id)?->id,
+                    'pending_child_recommendation_id' => $pendingChildrenByNode->get($n->id)?->id,
                 ]),
                 'links' => $tree->links->map(fn (NodeLink $l) => [
                     'id' => $l->id,

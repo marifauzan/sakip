@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\AiRecommendation;
 use App\Models\Document;
 use App\Models\Node;
-use App\Models\Sector;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,7 +20,9 @@ use Illuminate\Support\Facades\DB;
 class AiRecommendationService
 {
     public const KIND_CHILDREN = 'recommend_children';
+
     public const KIND_INDICATORS = 'recommend_indicators';
+
     public const KIND_SECTOR = 'detect_sector';
 
     public function __construct(private LlmClient $llm) {}
@@ -36,7 +37,7 @@ class AiRecommendationService
         $tree = $node->tree;
         $organization = $tree->organization;
 
-        $context = $this->buildContext($organization, $node->statement);
+        $context = $this->buildContext($organization, $node->statement, $tree->sector_id);
         $siblings = $tree->nodes()->where('id', '!=', $node->id)->pluck('statement')->toArray();
 
         $system = $this->systemPrompt();
@@ -67,7 +68,7 @@ class AiRecommendationService
 
         $recs = $result['recommendations'] ?? [];
 
-        AiRecommendation::create([
+        $rec = AiRecommendation::create([
             'organization_id' => $organization->id,
             'tree_id' => $tree->id,
             'node_id' => $node->id,
@@ -77,7 +78,7 @@ class AiRecommendationService
             'output' => ['recommendations' => $recs],
         ]);
 
-        return ['recommendations' => $recs];
+        return ['recommendations' => $recs, 'recommendation_id' => $rec->id];
     }
 
     /**
@@ -89,7 +90,7 @@ class AiRecommendationService
     {
         $tree = $node->tree;
         $organization = $tree->organization;
-        $context = $this->buildContext($organization, $node->statement);
+        $context = $this->buildContext($organization, $node->statement, $tree->sector_id);
 
         $system = $this->systemPrompt();
         $user = implode("\n", [
@@ -116,7 +117,7 @@ class AiRecommendationService
 
         $indicatorList = $result['indicators'] ?? [];
 
-        AiRecommendation::create([
+        $rec = AiRecommendation::create([
             'organization_id' => $organization->id,
             'tree_id' => $tree->id,
             'node_id' => $node->id,
@@ -126,7 +127,7 @@ class AiRecommendationService
             'output' => ['indicators' => $indicatorList],
         ]);
 
-        return ['indicators' => $indicatorList];
+        return ['indicators' => $indicatorList, 'recommendation_id' => $rec->id];
     }
 
     /**
@@ -174,10 +175,10 @@ class AiRecommendationService
     /**
      * Bangun konteks (dokumen relevan + knowledge pack sektor) untuk prompt.
      */
-    private function buildContext($organization, string $query): array
+    private function buildContext($organization, string $query, ?int $sectorId = null): array
     {
         $documentText = $this->retrieveRelevantText($organization->id, $query);
-        $sectorText = $this->retrieveSectorKnowledge($organization->id);
+        $sectorText = $this->retrieveSectorKnowledge($organization->id, $sectorId);
 
         return [
             'document' => $documentText,
@@ -202,8 +203,9 @@ class AiRecommendationService
             ->where('organization_id', $organizationId)
             ->where('status', 'extracted')
             ->withWhereHas('chunks', function ($q) use ($tokens) {
+                $likeOperator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
                 foreach ($tokens as $i => $token) {
-                    $q->where('content', 'ilike', "%{$token}%");
+                    $q->where('content', $likeOperator, "%{$token}%");
                 }
             })
             ->get()
@@ -213,6 +215,7 @@ class AiRecommendationService
                         return false;
                     }
                 }
+
                 return true;
             }))
             ->take(5)
@@ -223,15 +226,36 @@ class AiRecommendationService
 
     /**
      * Ambil knowledge pack sektor yang aktif (global atau milik organisasi).
+     * Jika sectorId diberikan, prioritaskan knowledge pack dari sektor tersebut.
      */
-    private function retrieveSectorKnowledge(int $organizationId): string
+    private function retrieveSectorKnowledge(int $organizationId, ?int $sectorId = null): string
     {
+        $formatPack = fn ($p) => ($p->title ? "### {$p->title}".($p->source ? " (Sumber: {$p->source})\n" : "\n") : '').$p->content;
+
+        if ($sectorId) {
+            $packs = DB::table('knowledge_packs')
+                ->join('sectors', 'sectors.id', '=', 'knowledge_packs.sector_id')
+                ->where('knowledge_packs.is_active', true)
+                ->where('sectors.id', $sectorId)
+                ->where(fn ($q) => $q->whereNull('sectors.organization_id')
+                    ->orWhere('sectors.organization_id', $organizationId))
+                ->select('knowledge_packs.title', 'knowledge_packs.source', 'knowledge_packs.content')
+                ->get()
+                ->map($formatPack);
+
+            if ($packs->isNotEmpty()) {
+                return $packs->implode("\n---\n");
+            }
+        }
+
         $packs = DB::table('knowledge_packs')
             ->join('sectors', 'sectors.id', '=', 'knowledge_packs.sector_id')
             ->where('knowledge_packs.is_active', true)
             ->where(fn ($q) => $q->whereNull('sectors.organization_id')
                 ->orWhere('sectors.organization_id', $organizationId))
-            ->pluck('knowledge_packs.content');
+            ->select('knowledge_packs.title', 'knowledge_packs.source', 'knowledge_packs.content')
+            ->get()
+            ->map($formatPack);
 
         return $packs->implode("\n---\n");
     }

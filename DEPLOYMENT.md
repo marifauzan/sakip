@@ -111,6 +111,9 @@ ExecStart=/usr/bin/php /home/ubuntu/sakip/artisan queue:work --sleep=3 --tries=3
 }
 :8080 {
     root * /home/ubuntu/sakip/public
+    request_body {
+        max_size 64MB
+    }
     php_server
     encode zstd gzip
     file_server
@@ -120,6 +123,9 @@ ExecStart=/usr/bin/php /home/ubuntu/sakip/artisan queue:work --sleep=3 --tries=3
 ### Proxy pusat (`/home/ubuntu/sakp/Caddyfile`, ditambah)
 ```
 sakip.mar-iworks.com {
+    request_body {
+        max_size 64MB
+    }
     reverse_proxy localhost:8080
     encode zstd gzip
 }
@@ -161,13 +167,20 @@ php artisan db:seed --force
 |---|---|---|
 | `admin@kemenag.test` | admin | Kementerian Agama (contoh) |
 | `planner@disdik.test` | planner | Dinas Pendidikan (contoh) |
+| `admin@kementan.test` | admin | Kementerian Pertanian |
+| `planner@kementan.test` | planner | Kementerian Pertanian |
+| `reviewer@kementan.test` | reviewer | Kementerian Pertanian |
 
 Password: `password` (GANTI untuk produksi nyata!)
 
+> Akun Kementan dilengkapi data contoh pohon kinerja "Renstra Kementan 2025–2029"
+> (6 sasaran, 7 indikator, relasi DAG) untuk keperluan demo ke pimpinan.
+
 ---
 
-## 8. Keamanan
+## 8. Keamanan & Konfigurasi Upload
 
+- Batas upload dokumen di aplikasi: **50 MB** (`public/.user.ini` mengonfigurasi `upload_max_filesize=60M` dan `post_max_size=64M`).
 - `APP_DEBUG=false`, API key LLM hanya di backend.
 - `trustProxies(at: '*')` di `bootstrap/app.php` (di belakang reverse proxy).
 - Multi-tenant: filter `organization_id` + abort 403 lintas org.
@@ -184,6 +197,7 @@ Password: `password` (GANTI untuk produksi nyata!)
 | `bind: address already in use` (2019) | Admin Caddy bentrok dgn sakp | Set `admin 127.0.0.1:2020` |
 | Redirect ke http (bukan https) | Lupa `trustProxies` | Tambah `trustProxies(at: '*')` |
 | `Disk [private] does not have a configured driver` | Disk `private` belum didefinisikan | Tambah di `config/filesystems.php` |
+| `The file failed to upload` (> 2MB) | Batas runtime PHP default 2M | Pastikan `public/.user.ini` aktif atau set di Caddy / php.ini |
 | `reload` service gagal | FrankenPHP tidak support reload | Pakai `restart` |
 | Upload 500 | File tidak tersimpan | Cek permission `storage/app/private` |
 

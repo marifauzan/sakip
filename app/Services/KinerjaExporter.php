@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\KinerjaTree;
 use App\Models\Node;
 use App\Models\NodeLink;
+use Illuminate\Support\Collection;
 
 /**
  * Ekspor rancangan perjenjangan kinerja ke format Markdown / JSON / CSV.
@@ -87,10 +88,11 @@ class KinerjaExporter
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
-    /** @return \Illuminate\Support\Collection<int, Node> */
-    private function roots(KinerjaTree $tree): \Illuminate\Support\Collection
+    /** @return Collection<int, Node> */
+    private function roots(KinerjaTree $tree): Collection
     {
         $childIds = $tree->links->pluck('child_node_id')->unique();
+
         return $tree->nodes->whereNotIn('id', $childIds);
     }
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\DocumentChunk;
+use Illuminate\Support\Facades\Storage;
 use Smalot\PdfParser\Parser as PdfParser;
 use ZipArchive;
 
@@ -23,14 +24,29 @@ class DocumentExtractor
         $document->update(['status' => 'extracting']);
 
         try {
-            $path = storage_path('app/private/'.$document->file_path);
+            $path = Storage::disk('private')->path($document->file_path);
 
-            $pages = match ($document->file_mime) {
-                'application/pdf' => $this->extractPdf($path),
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/msword' => $this->extractDocx($path),
-                'text/plain' => $this->extractText($path),
-                default => throw new \RuntimeException('Tipe file tidak didukung: '.$document->file_mime),
+            if (! file_exists($path)) {
+                throw new \RuntimeException('File dokumen fisik tidak ditemukan di penyimpanan server.');
+            }
+
+            $ext = strtolower(pathinfo($document->file_name, PATHINFO_EXTENSION));
+            $mime = strtolower((string) $document->file_mime);
+
+            $pages = match (true) {
+                $mime === 'application/pdf'
+                    || in_array($mime, ['application/x-pdf', 'application/acrobat', 'applications/vnd.pdf', 'text/pdf'], true)
+                    || $ext === 'pdf' => $this->extractPdf($path),
+
+                $mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    || $ext === 'docx'
+                    || ($ext === 'doc' && in_array($mime, ['application/zip', 'application/x-zip', 'application/x-zip-compressed', 'application/octet-stream'], true)) => $this->extractDocx($path),
+
+                $ext === 'doc' || $mime === 'application/msword' => $this->extractLegacyDocOrDocx($path),
+
+                $mime === 'text/plain' || $ext === 'txt' => $this->extractText($path),
+
+                default => throw new \RuntimeException('Tipe file tidak didukung: '.($document->file_mime ?: $ext)),
             };
 
             $this->storeChunks($document, $pages);
@@ -50,19 +66,32 @@ class DocumentExtractor
     }
 
     /**
-     * @return array<int, string>  [pageNumber => text]
+     * @return array<int, string> [pageNumber => text]
      */
     private function extractPdf(string $path): array
     {
-        $parser = new PdfParser;
-        $pdf = $parser->parseFile($path);
+        try {
+            $parser = new PdfParser;
+            $pdf = $parser->parseFile($path);
 
-        $pages = [];
-        foreach ($pdf->getPages() as $i => $page) {
-            $pages[$i + 1] = trim((string) $page->getText());
+            $pages = [];
+            foreach ($pdf->getPages() as $i => $page) {
+                $pages[$i + 1] = trim((string) $page->getText());
+            }
+
+            $allText = implode('', $pages);
+            if (trim($allText) === '') {
+                throw new \RuntimeException('PDF tidak memuat teks digital (kemungkinan berupa pindaian gambar tanpa OCR). Harap gunakan dokumen dengan teks digital atau format DOCX.');
+            }
+
+            return $pages;
+        } catch (\Throwable $e) {
+            if ($e instanceof \RuntimeException) {
+                throw $e;
+            }
+
+            throw new \RuntimeException('Gagal membaca dokumen PDF: '.$e->getMessage(), 0, $e);
         }
-
-        return $pages;
     }
 
     /**
@@ -74,7 +103,7 @@ class DocumentExtractor
     {
         $zip = new ZipArchive;
         if ($zip->open($path) !== true) {
-            throw new \RuntimeException('Gagal membuka DOCX.');
+            throw new \RuntimeException('Gagal membuka file DOCX. Pastikan file tidak rusak atau terenkripsi password.');
         }
 
         $xml = $zip->getFromName('word/document.xml');
@@ -124,8 +153,32 @@ class DocumentExtractor
         }
 
         $full = implode("\n", $parts);
+
+        if (trim($full) === '') {
+            throw new \RuntimeException('Dokumen DOCX kosong atau tidak memiliki konten teks.');
+        }
+
         // DOCX tidak punya halaman tegas; satu "halaman" = seluruh teks.
         return [1 => $full];
+    }
+
+    /**
+     * Cek apakah .doc sebenarnya adalah DOCX yang diberi ekstensi .doc, atau file biner OLE .doc lama.
+     *
+     * @return array<int, string>
+     */
+    private function extractLegacyDocOrDocx(string $path): array
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($path) === true) {
+            $hasXml = $zip->locateName('word/document.xml') !== false;
+            $zip->close();
+            if ($hasXml) {
+                return $this->extractDocx($path);
+            }
+        }
+
+        throw new \RuntimeException('Format .doc biner lama (Word 97-2003) tidak didukung untuk ekstraksi otomatis. Harap simpan ulang dokumen Anda ke format .docx atau .pdf, lalu unggah kembali.');
     }
 
     /**
@@ -137,7 +190,7 @@ class DocumentExtractor
     }
 
     /**
-     * @param array<int, string> $pages
+     * @param  array<int, string>  $pages
      */
     private function storeChunks(Document $document, array $pages): void
     {

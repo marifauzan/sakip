@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\KinerjaTree;
+use App\Models\NodeLink;
 
 /**
  * Validasi Directed Acyclic Graph (DAG) untuk hubungan antarsasaran.
@@ -40,7 +41,7 @@ class DagValidator
                 return true;
             }
 
-            $parents = \App\Models\NodeLink::where('child_node_id', $current)
+            $parents = NodeLink::where('child_node_id', $current)
                 ->where('tree_id', $tree->id)
                 ->pluck('parent_node_id');
 

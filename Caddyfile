@@ -7,6 +7,9 @@
 # Bind ke localhost:8080 (TLS ditangani proxy pusat di sakp Caddyfile)
 :8080 {
     root * /home/ubuntu/sakip/public
+    request_body {
+        max_size 64MB
+    }
     php_server
     encode zstd gzip
     file_server

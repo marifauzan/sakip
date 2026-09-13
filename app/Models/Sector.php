@@ -22,4 +22,9 @@ class Sector extends Model
     {
         return $this->hasMany(KnowledgePack::class);
     }
+
+    public function kinerjaTrees(): HasMany
+    {
+        return $this->hasMany(KinerjaTree::class);
+    }
 }

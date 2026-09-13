@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\KinerjaController;
+use App\Http\Controllers\KnowledgePackController;
 use App\Http\Controllers\ReviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +23,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
+    Route::post('/documents/{document}/retry-extract', [DocumentController::class, 'retryExtract'])->name('documents.retry-extract');
 
     Route::get('/kinerja', [KinerjaController::class, 'index'])->name('kinerja.index');
     Route::post('/kinerja', [KinerjaController::class, 'store'])->name('kinerja.store');
@@ -35,8 +37,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/kinerja/{tree}/nodes/{node}/ai/indicators', [AiController::class, 'recommendIndicators'])->name('kinerja.ai.indicators');
     Route::post('/kinerja/{tree}/nodes/{node}/ai/children/accept', [AiController::class, 'acceptChildren'])->name('kinerja.ai.children.accept');
     Route::post('/kinerja/{tree}/nodes/{node}/ai/indicators/accept', [AiController::class, 'acceptIndicator'])->name('kinerja.ai.indicators.accept');
+    Route::post('/kinerja/{tree}/nodes/{node}/ai/dismiss', [AiController::class, 'dismissRecommendations'])->name('kinerja.ai.dismiss');
 
     // Reviu & ekspor
     Route::post('/kinerja/{tree}/reviews', [ReviewController::class, 'store'])->name('kinerja.reviews.store');
     Route::get('/kinerja/{tree}/export', [ReviewController::class, 'export'])->name('kinerja.export');
+
+    // Knowledge Packs & Sektor
+    Route::get('/knowledge-packs', [KnowledgePackController::class, 'index'])->name('knowledge-packs.index');
+    Route::post('/knowledge-packs/sectors', [KnowledgePackController::class, 'storeSector'])->name('knowledge-packs.sectors.store');
+    Route::put('/knowledge-packs/sectors/{sector}', [KnowledgePackController::class, 'updateSector'])->name('knowledge-packs.sectors.update');
+    Route::delete('/knowledge-packs/sectors/{sector}', [KnowledgePackController::class, 'destroySector'])->name('knowledge-packs.sectors.destroy');
+    Route::post('/knowledge-packs/sectors/{sector}/packs', [KnowledgePackController::class, 'storePack'])->name('knowledge-packs.packs.store');
+    Route::put('/knowledge-packs/packs/{pack}', [KnowledgePackController::class, 'updatePack'])->name('knowledge-packs.packs.update');
+    Route::delete('/knowledge-packs/packs/{pack}', [KnowledgePackController::class, 'destroyPack'])->name('knowledge-packs.packs.destroy');
+    Route::patch('/knowledge-packs/packs/{pack}/toggle', [KnowledgePackController::class, 'togglePack'])->name('knowledge-packs.packs.toggle');
 });

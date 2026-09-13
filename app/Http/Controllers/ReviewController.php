@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\KinerjaTree;
+use App\Models\Node;
 use App\Services\KinerjaExporter;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReviewController extends Controller
 {
@@ -29,7 +29,7 @@ class ReviewController extends Controller
 
         // Jika approve node, tandai source_type = approved
         if ($data['decision'] === 'approve' && ! empty($data['node_id'])) {
-            \App\Models\Node::where('id', $data['node_id'])
+            Node::where('id', $data['node_id'])
                 ->where('tree_id', $tree->id)
                 ->update(['source_type' => 'approved']);
         }
@@ -55,7 +55,7 @@ class ReviewController extends Controller
         }
 
         return response()->streamDownload(
-            fn () => print($content),
+            fn () => print ($content),
             $filename,
             ['Content-Type' => $contentType]
         );

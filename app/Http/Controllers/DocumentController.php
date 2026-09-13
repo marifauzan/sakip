@@ -41,7 +41,23 @@ class DocumentController extends Controller
             'type' => ['required', 'string', 'in:renstra,rpjmd,rpjmn,renstra_opd,lainnya'],
             'period_start' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'period_end' => ['nullable', 'integer', 'min:2000', 'max:2100'],
-            'file' => ['required', 'file', 'mimes:pdf,docx,doc,txt', 'max:20480'],
+            'file' => ['required', 'file', 'mimes:pdf,docx,doc,txt', 'max:51200'],
+        ], [
+            'title.required' => 'Judul dokumen wajib diisi.',
+            'title.max' => 'Judul dokumen maksimal 255 karakter.',
+            'type.required' => 'Jenis dokumen wajib dipilih.',
+            'type.in' => 'Jenis dokumen tidak valid.',
+            'period_start.integer' => 'Tahun awal harus berupa angka tahun.',
+            'period_start.min' => 'Tahun awal minimal 2000.',
+            'period_start.max' => 'Tahun awal maksimal 2100.',
+            'period_end.integer' => 'Tahun akhir harus berupa angka tahun.',
+            'period_end.min' => 'Tahun akhir minimal 2000.',
+            'period_end.max' => 'Tahun akhir maksimal 2100.',
+            'file.required' => 'File dokumen wajib dipilih.',
+            'file.file' => 'File yang diunggah tidak valid.',
+            'file.mimes' => 'Format file harus berupa PDF, DOCX, DOC, atau TXT.',
+            'file.max' => 'Ukuran file tidak boleh melebihi 50 MB.',
+            'file.uploaded' => 'File gagal diunggah ke server. Pastikan ukuran file tidak melebihi 50 MB.',
         ]);
 
         $file = $request->file('file');
@@ -56,7 +72,7 @@ class DocumentController extends Controller
             'status' => 'uploaded',
             'file_path' => $path,
             'file_name' => $file->getClientOriginalName(),
-            'file_mime' => $file->getMimeType(),
+            'file_mime' => $file->getMimeType() ?: $file->getClientMimeType(),
             'file_size' => $file->getSize(),
         ]);
 
@@ -64,6 +80,20 @@ class DocumentController extends Controller
 
         return redirect()->route('documents.index')
             ->with('success', 'Dokumen diunggah; ekstraksi berjalan di latar belakang.');
+    }
+
+    public function retryExtract(Request $request, Document $document)
+    {
+        $this->authorizeOrganization($request, $document);
+
+        $document->update([
+            'status' => 'uploaded',
+            'extract_error' => null,
+        ]);
+
+        ExtractDocument::dispatch($document);
+
+        return back()->with('success', 'Proses ekstraksi ulang dokumen telah dimulai.');
     }
 
     public function show(Request $request, Document $document)
