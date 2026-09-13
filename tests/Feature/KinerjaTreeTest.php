@@ -163,4 +163,38 @@ class KinerjaTreeTest extends TestCase
             ])
             ->assertStatus(422);
     }
+
+    public function test_can_add_node_with_parent_link(): void
+    {
+        $parent = $this->tree->nodes()->create([
+            'statement' => 'Meningkatnya Kedaulatan Pangan',
+            'type' => 'outcome',
+            'code' => 'SS.0',
+        ]);
+
+        $response = $this->actingAs($this->user)->post("/kinerja/{$this->tree->id}/nodes", [
+            'statement' => 'Tercapainya Swasembada Padi',
+            'type' => 'output',
+            'code' => 'SP.1',
+            'parent_node_id' => $parent->id,
+            'relationship_reason' => 'Kondisi esensial kedaulatan pangan',
+        ]);
+
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('nodes', [
+            'tree_id' => $this->tree->id,
+            'statement' => 'Tercapainya Swasembada Padi',
+            'type' => 'output',
+        ]);
+
+        $child = $this->tree->nodes()->where('statement', 'Tercapainya Swasembada Padi')->first();
+
+        $this->assertDatabaseHas('node_links', [
+            'tree_id' => $this->tree->id,
+            'parent_node_id' => $parent->id,
+            'child_node_id' => $child->id,
+            'reason' => 'Kondisi esensial kedaulatan pangan',
+        ]);
+    }
 }

@@ -155,6 +155,8 @@ class KinerjaController extends Controller
             'statement' => ['required', 'string'],
             'type' => ['required', 'in:outcome,output,aktivitas'],
             'code' => ['nullable', 'string', 'max:64'],
+            'parent_node_id' => ['nullable', 'integer', 'exists:nodes,id'],
+            'relationship_reason' => ['nullable', 'string'],
         ]);
 
         $node = $tree->nodes()->create([
@@ -164,6 +166,21 @@ class KinerjaController extends Controller
             'source_type' => 'user_edited',
             'order' => $tree->nodes()->count(),
         ]);
+
+        if (! empty($data['parent_node_id'])) {
+            $parent = Node::where('id', $data['parent_node_id'])
+                ->where('tree_id', $tree->id)
+                ->first();
+
+            if ($parent && ! DagValidator::wouldCreateCycle($tree, (int) $parent->id, (int) $node->id)) {
+                NodeLink::create([
+                    'tree_id' => $tree->id,
+                    'parent_node_id' => $parent->id,
+                    'child_node_id' => $node->id,
+                    'reason' => $data['relationship_reason'] ?? null,
+                ]);
+            }
+        }
 
         return back()->with('success', 'Sasaran ditambahkan.');
     }
