@@ -79,7 +79,7 @@ jobs:
             composer install --no-interaction --prefer-dist --no-progress
 
             echo "== build frontend =="
-            npm install --no-progress
+            npm ci --no-progress
             npm run build
 
             echo "== clear cache (PENTING: sebelum migrate) =="
