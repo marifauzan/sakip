@@ -25,6 +25,7 @@ class AiController extends Controller
             return response()->json([
                 'recommendations' => $result['recommendations'],
                 'recommendation_id' => $result['recommendation_id'] ?? null,
+                'sources' => $result['sources'] ?? [],
             ]);
         }
 

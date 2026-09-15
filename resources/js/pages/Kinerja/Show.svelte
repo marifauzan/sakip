@@ -115,6 +115,7 @@
 
     // AI Recommendation states per node
     let aiChildren = $state({});
+    let aiSources = $state({});
     let aiIndicators = $state({});
     let aiRecIds = $state({});
     let aiLoading = $state({}); // nodeId -> 'children' | 'indicators' | null
@@ -483,6 +484,7 @@
                 );
             }
             aiChildren[nodeId] = data.recommendations ?? [];
+            aiSources[nodeId] = data.sources ?? [];
             if (data.recommendation_id) {
                 if (!aiRecIds[nodeId]) aiRecIds[nodeId] = {};
                 aiRecIds[nodeId].childRecId = data.recommendation_id;
