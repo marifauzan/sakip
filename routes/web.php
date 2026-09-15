@@ -24,6 +24,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::post('/documents/{document}/retry-extract', [DocumentController::class, 'retryExtract'])->name('documents.retry-extract');
+    Route::post('/documents/{document}/detect-sector', [DocumentController::class, 'detectSector'])->name('documents.detect-sector');
+    Route::post('/documents/{document}/confirm-sector', [DocumentController::class, 'confirmSector'])->name('documents.confirm-sector');
 
     Route::get('/kinerja', [KinerjaController::class, 'index'])->name('kinerja.index');
     Route::post('/kinerja', [KinerjaController::class, 'store'])->name('kinerja.store');

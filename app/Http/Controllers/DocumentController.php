@@ -102,6 +102,13 @@ class DocumentController extends Controller
 
         $document->load('sector', 'chunks');
 
+        // Sektor yang tersedia (global + milik organisasi ini) untuk dropdown konfirmasi.
+        $availableSectors = \App\Models\Sector::query()
+            ->where(fn ($q) => $q->whereNull('organization_id')
+                ->orWhere('organization_id', $document->organization_id))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return Inertia::render('Documents/Show', [
             'document' => [
                 'id' => $document->id,
@@ -113,6 +120,7 @@ class DocumentController extends Controller
                 'file_name' => $document->file_name,
                 'extract_error' => $document->extract_error,
                 'sector' => $document->sector?->only('id', 'name'),
+                'sector_confirmed' => $document->sector_confirmed_at !== null,
                 'chunks' => $document->chunks->map(fn ($c) => [
                     'id' => $c->id,
                     'page' => $c->page,
@@ -121,7 +129,70 @@ class DocumentController extends Controller
                     'preview' => mb_substr($c->content, 0, 200),
                 ]),
             ],
+            'availableSectors' => $availableSectors,
         ]);
+    }
+
+    /**
+     * AI mendeteksi sektor dari isi dokumen. Hasilnya BELUM final —
+     * user wajib mengonfirmasi/mengoreksi sebelum dipakai.
+     */
+    public function detectSector(Request $request, Document $document, \App\Services\AiRecommendationService $ai)
+    {
+        $this->authorizeOrganization($request, $document);
+
+        try {
+            $result = $ai->detectSector($document);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Gagal mendeteksi sektor: '.$e->getMessage(),
+            ], 422);
+        }
+
+        // Cari/buat sector dengan nama hasil deteksi (belum dikonfirmasi).
+        $sector = \App\Models\Sector::firstOrCreate(
+            ['organization_id' => null, 'name' => $result['name']],
+            ['slug' => str()->slug($result['name'])],
+        );
+
+        // Simpan sebagai USULAN: sector_id di-set, tapi confirmed_at tetap null.
+        $document->update([
+            'sector_id' => $sector->id,
+            'sector_confirmed_at' => null,
+        ]);
+
+        return response()->json([
+            'sector' => $sector->only('id', 'name'),
+            'confidence' => $result['confidence'],
+        ]);
+    }
+
+    /** User mengonfirmasi atau mengoreksi sektor dokumen. */
+    public function confirmSector(Request $request, Document $document)
+    {
+        $this->authorizeOrganization($request, $document);
+
+        $data = $request->validate([
+            'sector_id' => ['nullable', 'integer', 'exists:sectors,id'],
+        ]);
+
+        // Pastikan sektor milik organisasi ini atau global.
+        if ($data['sector_id']) {
+            $sector = \App\Models\Sector::findOrFail($data['sector_id']);
+            abort_unless(
+                $sector->organization_id === null
+                    || $sector->organization_id === $document->organization_id,
+                403,
+                'Sektor tidak tersedia untuk organisasi ini.'
+            );
+        }
+
+        $document->update([
+            'sector_id' => $data['sector_id'] ?? null,
+            'sector_confirmed_at' => now(),
+        ]);
+
+        return back()->with('success', 'Sektor dokumen dikonfirmasi.');
     }
 
     private function authorizeOrganization(Request $request, Document $document): void

@@ -10,12 +10,78 @@
         CheckCircle2,
         RefreshCw,
         Clock,
-        FileCheck
+        FileCheck,
+        Tag,
+        Sparkles
     } from '@lucide/svelte';
 
-    let { document } = $props();
+    let { document, availableSectors = [] } = $props();
 
     let retrying = $state(false);
+    let detecting = $state(false);
+    let savingSector = $state(false);
+    let sectorMessage = $state('');
+    let sectorError = $state(false);
+    let selectedSector = $state(document.sector?.id ?? '');
+
+    async function detectSector() {
+        detecting = true;
+        sectorMessage = '';
+        try {
+            const res = await fetch(`/documents/${document.id}/detect-sector`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf(),
+                },
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                sectorError = true;
+                sectorMessage = data.error ?? 'Gagal mendeteksi sektor.';
+            } else {
+                sectorError = false;
+                sectorMessage = `AI mengusulkan sektor "${data.sector.name}" (keyakinan: ${data.confidence}). Periksa lalu klik Konfirmasi Sektor.`;
+                // Muat ulang agar dropdown & badge sinkron.
+                router.reload({ only: ['document', 'availableSectors'] });
+            }
+        } catch (e) {
+            sectorError = true;
+            sectorMessage = 'Terjadi kesalahan saat menghubungi server.';
+        } finally {
+            detecting = false;
+        }
+    }
+
+    function confirmSector() {
+        savingSector = true;
+        sectorMessage = '';
+        router.post(
+            `/documents/${document.id}/confirm-sector`,
+            { sector_id: selectedSector === '' ? null : selectedSector },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    sectorError = false;
+                    sectorMessage = 'Sektor berhasil dikonfirmasi.';
+                },
+                onError: () => {
+                    sectorError = true;
+                    sectorMessage = 'Gagal menyimpan sektor.';
+                },
+                onFinish: () => {
+                    savingSector = false;
+                },
+            }
+        );
+    }
+
+    function csrf() {
+        // Gunakan globalThis.cookie via document (browser), bukan prop `document`.
+        const m = window.document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
 
     function retryExtract() {
         retrying = true;
@@ -105,6 +171,71 @@
                     </span>
                 </div>
             </div>
+        </div>
+
+        <!-- SEKTOR / DOMAIN DOSSIER -->
+        <div class="p-5 rounded-xl border border-slate-200 bg-white shadow-2xs space-y-4">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <Tag class="w-4 h-4 text-indigo-600" />
+                    <h2 class="text-sm font-bold text-slate-900">Sektor / Domain Keilmuan</h2>
+                </div>
+                {#if document.sector}
+                    {#if document.sector_confirmed}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-emerald-50 text-emerald-800 border-emerald-200">
+                            <CheckCircle2 class="w-3 h-3" /> Terkonfirmasi
+                        </span>
+                    {:else}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-200">
+                            <AlertCircle class="w-3 h-3" /> Usulan AI (perlu konfirmasi)
+                        </span>
+                    {/if}
+                {/if}
+            </div>
+
+            {#if detecting}
+                <p class="text-xs text-slate-500 flex items-center gap-2">
+                    <RefreshCw class="w-3.5 h-3.5 animate-spin" /> Menganalisis dokumen untuk mendeteksi sektor…
+                </p>
+            {:else}
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="flex-1 min-w-[220px]">
+                        <label class="block text-[11px] font-semibold text-slate-500 mb-1">Sektor dokumen</label>
+                        <select
+                            bind:value={selectedSector}
+                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
+                        >
+                            <option value="">— Belum ditentukan —</option>
+                            {#each availableSectors as s (s.id)}
+                                <option value={s.id}>{s.name}</option>
+                            {/each}
+                        </select>
+                    </div>
+                    <button
+                        type="button"
+                        onclick={detectSector}
+                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                    >
+                        <Sparkles class="w-3.5 h-3.5" /> Deteksi dengan AI
+                    </button>
+                    <button
+                        type="button"
+                        onclick={confirmSector}
+                        disabled={savingSector}
+                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                    >
+                        {savingSector ? 'Menyimpan…' : 'Konfirmasi Sektor'}
+                    </button>
+                </div>
+
+                {#if sectorMessage}
+                    <p class="text-xs {sectorError ? 'text-rose-600' : 'text-emerald-700'}">{sectorMessage}</p>
+                {/if}
+
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                    AI hanya mengusulkan. Sektor dipakai sebagai konteks rekomendasi setelah Anda konfirmasi.
+                </p>
+            {/if}
         </div>
 
         <!-- EXTRACTION IN PROGRESS BANNER -->
