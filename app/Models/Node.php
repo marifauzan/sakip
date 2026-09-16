@@ -12,7 +12,7 @@ class Node extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['tree_id', 'code', 'statement', 'type', 'source_type', 'order'];
+    protected $fillable = ['tree_id', 'code', 'statement', 'type', 'source_type', 'order', 'pos_x', 'pos_y'];
 
     public function tree(): BelongsTo
     {

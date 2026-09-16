@@ -32,6 +32,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/kinerja/{tree}', [KinerjaController::class, 'show'])->name('kinerja.show');
     Route::post('/kinerja/{tree}/nodes', [KinerjaController::class, 'storeNode'])->name('kinerja.nodes.store');
     Route::post('/kinerja/{tree}/links', [KinerjaController::class, 'storeLink'])->name('kinerja.links.store');
+    Route::post('/kinerja/{tree}/positions', [KinerjaController::class, 'savePositions'])->name('kinerja.positions.save');
     Route::post('/kinerja/{tree}/nodes/{node}/indicators', [KinerjaController::class, 'storeIndicator'])->name('kinerja.indicators.store');
 
     // AI

@@ -213,16 +213,22 @@
         const layoutedNodes = rawNodes.map((node) => {
             const nodeWithPosition = dagreGraph.node(String(node.id)) || { x: 0, y: 0 };
             const isSelected = activeNodeId === node.id;
+            // Jika user sudah pernah memindahkan simpul (drag), pakai posisi tersimpan.
+            // Jika belum, pakai hasil auto-layout dagre.
+            const hasSavedPosition = node.pos_x !== null && node.pos_x !== undefined
+                && node.pos_y !== null && node.pos_y !== undefined;
             return {
                 id: String(node.id),
                 type: 'kinerjaNode',
                 targetPosition: isHorizontal ? Position.Left : Position.Top,
                 sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
                 selected: isSelected,
-                position: {
-                    x: nodeWithPosition.x - nodeWidth / 2,
-                    y: nodeWithPosition.y - nodeHeight / 2,
-                },
+                position: hasSavedPosition
+                    ? { x: node.pos_x, y: node.pos_y }
+                    : {
+                        x: nodeWithPosition.x - nodeWidth / 2,
+                        y: nodeWithPosition.y - nodeHeight / 2,
+                    },
                 data: {
                     rawNode: node,
                     code: node.code,
@@ -620,6 +626,77 @@
         return m ? decodeURIComponent(m[1]) : '';
     }
 
+    /**
+     * Dipanggil saat user menarik garis dari satu simpul ke simpul lain.
+     * Membuat hubungan parent -> child lewat endpoint yang sudah ada
+     * (validasi anti-siklus tetap berlaku di backend).
+     */
+    function onConnect(connection) {
+        if (!connection?.source || !connection?.target) return;
+        if (connection.source === connection.target) {
+            toastError('Simpul tidak bisa dihubungkan ke dirinya sendiri.');
+            return;
+        }
+
+        fetch(`/kinerja/${tree.id}/links`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf(),
+            },
+            body: JSON.stringify({
+                parent_node_id: Number(connection.source),
+                child_node_id: Number(connection.target),
+            }),
+        })
+            .then(async (res) => {
+                if (res.ok) {
+                    router.reload({ only: ['tree'] });
+                } else if (res.status === 422 || res.status === 302) {
+                    router.reload({ only: ['tree'] });
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    toastError(data.message || 'Gagal membuat hubungan (mungkin membentuk siklus).');
+                }
+            })
+            .catch(() => toastError('Terjadi kesalahan saat menghubungkan simpul.'));
+    }
+
+    /** Simpan posisi simpul setelah user selesai menggeser (drag). */
+    let savePositionTimer = null;
+    function onNodeDragStop({ nodes }) {
+        if (!nodes?.length) return;
+
+        // Debounce: simpan sekali setelah user berhenti menggeser.
+        clearTimeout(savePositionTimer);
+        savePositionTimer = setTimeout(() => {
+            const positions = nodes.map((n) => ({
+                id: Number(n.id),
+                pos_x: Math.round(n.position.x),
+                pos_y: Math.round(n.position.y),
+            }));
+
+            fetch(`/kinerja/${tree.id}/positions`, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf(),
+                },
+                body: JSON.stringify({ positions }),
+            }).catch(() => {
+                /* senyap: posisi gagal tersimpan bukan kesalahan kritis */
+            });
+        }, 400);
+    }
+
+    function toastError(message) {
+        if (typeof window !== 'undefined' && window.alert) {
+            window.alert(message);
+        }
+    }
+
     function handleGlobalKeyDown(e) {
         if (e.key === 'Escape') {
             if (isDrawerOpen) closeDrawer();
@@ -893,6 +970,10 @@
                         minZoom={0.2}
                         maxZoom={2}
                         class="bg-slate-50/40"
+                        onconnect={onConnect}
+                        onnodedragstop={onNodeDragStop}
+                        nodesDraggable={true}
+                        nodesConnectable={true}
                     >
                         <Background variant="dots" gap={20} size={1} color="#cbd5e1" />
                         <Controls class="!bg-white !border !border-slate-200 !rounded-lg !shadow-xs" />

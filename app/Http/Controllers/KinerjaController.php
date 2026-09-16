@@ -116,6 +116,8 @@ class KinerjaController extends Controller
                     'type' => $n->type,
                     'source_type' => $n->source_type,
                     'order' => $n->order,
+                    'pos_x' => $n->pos_x,
+                    'pos_y' => $n->pos_y,
                     'indicators' => $n->indicators->map(fn (Indicator $i) => [
                         'id' => $i->id,
                         'name' => $i->name,
@@ -243,5 +245,37 @@ class KinerjaController extends Controller
             403,
             'Anda tidak memiliki akses ke rancangan ini.'
         );
+    }
+
+    /**
+     * Simpan posisi visual simpul (hasil drag di canvas).
+     * Menerima array node: [{id, pos_x, pos_y}, ...].
+     */
+    public function savePositions(Request $request, KinerjaTree $tree)
+    {
+        $this->authorizeTree($request, $tree);
+
+        $data = $request->validate([
+            'positions' => ['required', 'array'],
+            'positions.*.id' => ['required', 'integer'],
+            'positions.*.pos_x' => ['required', 'numeric'],
+            'positions.*.pos_y' => ['required', 'numeric'],
+        ]);
+
+        // Ambil hanya node milik tree ini -> cegah update lintas tree/tenant.
+        $validIds = Node::where('tree_id', $tree->id)->pluck('id')->all();
+
+        foreach ($data['positions'] as $pos) {
+            if (! in_array($pos['id'], $validIds, true)) {
+                continue; // lewati node yang bukan milik tree ini
+            }
+
+            Node::where('id', $pos['id'])->update([
+                'pos_x' => $pos['pos_x'],
+                'pos_y' => $pos['pos_y'],
+            ]);
+        }
+
+        return response()->json(['saved' => count($data['positions'])]);
     }
 }
