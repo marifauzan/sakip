@@ -1,59 +1,186 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SAKIP
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Sistem Analisis & Konsolidasi Kinerja Instansi Pemerintah**
 
-## About Laravel
+Aplikasi berbantuan AI untuk penyusunan **perjenjangan kinerja** instansi pemerintah (K/L dan pemerintah daerah), mengacu pada **PermenPANRB No. 89 Tahun 2021**.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+> **Prinsip inti:** AI **menyarankan**, manusia **memutuskan**. Setiap rekomendasi AI dapat ditelusuri ke sumbernya (dokumen + halaman).
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- 🌐 Produksi: https://sakip.mar-iworks.com
+- 📦 Repo: https://github.com/marifauzan/sakip
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Daftar Isi
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- [Fitur](#fitur)
+- [Arsitektur Singkat](#arsitektur-singkat)
+- [Stack Teknologi](#stack-teknologi)
+- [Instalasi Lokal](#instalasi-lokal)
+- [Akun Demo](#akun-demo)
+- [Dokumentasi Lanjutan](#dokumentasi-lanjutan)
+- [Pengujian](#pengujian)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## Fitur
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+| Fitur | Deskripsi |
+|---|---|
+| **Multi-tenant** | Isolasi data antar-instansi; setiap query difilter `organization_id`. |
+| **Manajemen Dokumen** | Unggah Renstra/RPJMD (PDF/DOCX/TXT), ekstraksi teks otomatis via queue, chunking dengan metadata halaman & bab. |
+| **Deteksi Sektor** | AI mengklasifikasi sektor/domain dokumen (Pendidikan, Pertanian, Kesehatan, dst.) — **wajib dikonfirmasi user**. |
+| **Editor Perjenjangan Kinerja** | Sasaran (outcome/output/aktivitas), hubungan antarsasaran (DAG dengan validasi anti-siklus), indikator. |
+| **Rekomendasi AI** | Usulan turunan sasaran & indikator, berbasis dokumen + knowledge pack sektor, **lengkap dengan sitasi halaman**. |
+| **Knowledge Pack** | Konten kurasi per sektor (dimensi hasil + indikator umum) — bukan hasil pencarian web bebas. |
+| **Reviu & Persetujuan** | Komentar, approve/reject per simpul; status `ai_proposed` → `approved`. |
+| **Ekspor** | Markdown & JSON (hierarki + tabel indikator). |
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Arsitektur Singkat
 
-## Contributing
+```
+┌─────────────────────────────────────────────┐
+│  Frontend: Inertia + Svelte 5 (SSR)         │
+└──────────────────┬──────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────┐
+│  Backend: Laravel 12 + FrankenPHP (:8080)   │
+│                                             │
+│  Controllers ──► Services ──► Jobs (queue)  │
+│                     │                       │
+│  ┌──────────────────┼────────────────────┐  │
+│  │ PostgreSQL 16    │ LLM API (external) │  │
+│  │ + pgvector       │ /chat/completions  │  │
+│  └──────────────────┴────────────────────┘  │
+└──────────────────┬──────────────────────────┘
+                   │ reverse_proxy
+┌──────────────────▼──────────────────────────┐
+│  Proxy pusat: Caddy (TLS) — sakp.service    │
+└─────────────────────────────────────────────┘
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+**Detail arsitektur lengkap:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Stack Teknologi
 
-## Security Vulnerabilities
+| Layer | Teknologi |
+|---|---|
+| Backend | PHP 8.3, Laravel 12 |
+| Frontend | Inertia.js 3, Svelte 5, Tailwind CSS 4, Vite 7 |
+| Database | PostgreSQL 16 + pgvector 0.6 |
+| Web Server | FrankenPHP 1.12 (Caddy 2.11) |
+| Queue | Database driver (`sakip-queue.service`) |
+| AI | LLM OpenAI-compatible (`api.tokito.xyz`) |
+| Diagram | `@xyflow/svelte` + `@dagrejs/dagre` |
+| CI/CD | GitHub Actions → auto-deploy via SSH (tag `v*`) |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## Instalasi Lokal
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+# 1. Clone & install dependensi
+git clone git@github.com:marifauzan/sakip.git
+cd sakip
+composer install
+npm install
+
+# 2. Konfigurasi environment
+cp .env.example .env
+php artisan key:generate
+
+# 3. Setup database (PostgreSQL)
+#    Buat role & database sesuai DB_* di .env, lalu:
+php artisan migrate
+
+# 4. Seed data awal (organisasi, user demo, sektor, knowledge pack)
+php artisan db:seed
+php artisan db:seed --class=KementanSeeder
+php artisan db:seed --class=SectorKnowledgeSeeder
+
+# 5. Build frontend
+npm run build
+
+# 6. Jalankan (butuh 2 proses: web + queue worker)
+composer run dev   # atau: php artisan serve + php artisan queue:work
+```
+
+### Environment Variables Penting
+
+```env
+# Database
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=sakip
+DB_USERNAME=sakip
+DB_PASSWORD=***
+
+# LLM (OpenAI-compatible)
+LLM_BASE_URL=https://api.tokito.xyz/v1
+LLM_API_KEY=***
+LLM_MODEL=auto
+
+# Embedding (OPSIONAL — lihat catatan di docs/ARCHITECTURE.md#embedding)
+LLM_EMBEDDING_MODEL=
+```
+
+---
+
+## Akun Demo
+
+| Email | Role | Organisasi | Password |
+|---|---|---|---|
+| `admin@kementan.test` | admin | Kementerian Pertanian | `password` |
+| `planner@kementan.test` | planner | Kementerian Pertanian | `password` |
+| `reviewer@kementan.test` | reviewer | Kementerian Pertanian | `password` |
+| `admin@kemenag.test` | admin | Kementerian Agama | `password` |
+| `planner@disdik.test` | planner | Dinas Pendidikan | `password` |
+
+> ⚠️ **Akun demo.** Ganti password + tambahkan verifikasi email sebelum digunakan di produksi.
+
+---
+
+## Dokumentasi Lanjutan
+
+| Dokumen | Isi |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arsitektur mendetail, model data, alur request, keputusan desain |
+| [`docs/AI-METHOD.md`](docs/AI-METHOD.md) | Metode AI: prompt engineering, retrieval, grounding, anti-injection |
+| [`docs/WALKTHROUGH.md`](docs/WALKTHROUGH.md) | Walkthrough fitur v1 & v2 (langkah demi langkah) |
+| [`docs/EMBEDDING-NOTES.md`](docs/EMBEDDING-NOTES.md) | Kenapa embedding penting, fungsinya, kenapa ditunda |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Deployment, CI/CD, operasional, troubleshooting |
+| [`CHANGELOG.md`](CHANGELOG.md) | Riwayat versi |
+
+---
+
+## Pengujian
+
+```bash
+# PENTING: clear cache dulu, kalau tidak test bisa memakai database produksi!
+php artisan config:clear && php artisan route:clear
+
+# Semua test (SQLite in-memory)
+php artisan test
+
+# Test tertentu
+php artisan test --filter=MultiTenancyTest
+php artisan test --filter=SemanticSearchTest
+```
+
+> ⚠️ **Pitfall yang sering terjadi:** setelah deploy (`config:cache` + `route:cache`),
+> `php artisan test` akan memakai cache produksi — termasuk **database PostgreSQL produksi**.
+> Selalu `config:clear && route:clear` sebelum menjalankan test lokal.
+>
+> Sejak v2, `phpunit.xml` sudah memaksa `DB_CONNECTION=sqlite` + `DB_DATABASE=:memory:`,
+> tetapi **config cache mengalahkannya**. Clear cache selalu menyelesaikan ini.
+
+---
+
+## Lisensi
+
+MIT
