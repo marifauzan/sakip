@@ -6,4 +6,8 @@ return [
     'model' => env('LLM_MODEL', 'auto'),
     'timeout' => (int) env('LLM_TIMEOUT', 60),
     'max_output_tokens' => (int) env('LLM_MAX_OUTPUT_TOKENS', 1500),
+
+    // Embedding (opsional). Kosongkan bila provider tidak menyediakan
+    // endpoint /embeddings -> sistem otomatis pakai pencarian teks.
+    'embedding_model' => env('LLM_EMBEDDING_MODEL', ''),
 ];

@@ -25,7 +25,10 @@ class AiRecommendationService
 
     public const KIND_SECTOR = 'detect_sector';
 
-    public function __construct(private LlmClient $llm) {}
+    public function __construct(
+        private LlmClient $llm,
+        private SemanticSearchService $search,
+    ) {}
 
     /**
      * Rekomendasikan turunan sasaran (children) untuk satu node.
@@ -197,65 +200,29 @@ class AiRecommendationService
      */
     private function retrieveRelevantText(int $organizationId, string $query): array
     {
-        $tokens = preg_split('/\s+/u', mb_strtolower($query)) ?: [];
-        $tokens = array_filter($tokens, fn ($t) => mb_strlen($t) > 3);
+        $chunks = $this->search->search($organizationId, $query, 5);
 
-        if ($tokens === []) {
+        if ($chunks === []) {
             return ['text' => '', 'sources' => []];
         }
 
-        $documents = Document::query()
-            ->where('organization_id', $organizationId)
-            ->where('status', 'extracted')
-            ->withWhereHas('chunks', function ($q) use ($tokens) {
-                $likeOperator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
-                foreach ($tokens as $token) {
-                    $q->where('content', $likeOperator, "%{$token}%");
-                }
-            })
-            ->get();
-
-        $matched = collect();
-        foreach ($documents as $document) {
-            foreach ($document->chunks as $chunk) {
-                $ok = true;
-                foreach ($tokens as $token) {
-                    if (mb_stripos($chunk->content, $token) === false) {
-                        $ok = false;
-                        break;
-                    }
-                }
-                if ($ok) {
-                    $matched->push([
-                        'document_title' => $document->title,
-                        'document_id' => $document->id,
-                        'page' => $chunk->page,
-                        'section' => $chunk->section,
-                        'chunk_index' => $chunk->chunk_index,
-                        'content' => $chunk->content,
-                    ]);
-                }
-            }
-        }
-
-        $matched = $matched->take(5);
-
         // Teks berlabel: setiap potongan diberi ID rujukan yang bisa dikutip AI.
         $textLines = [];
-        foreach ($matched as $i => $m) {
-            $refId = 'D'.$m['document_id'].'-H'.($m['page'] ?? '?');
+        foreach ($chunks as $m) {
+            $refId = $this->search->referenceLabel($m);
             $textLines[] = "[{$refId}] (dokumen: {$m['document_title']}, halaman: ".($m['page'] ?? '?')
                 .($m['section'] ? ", bagian: {$m['section']}" : '').")\n".$m['content'];
         }
 
         return [
             'text' => implode("\n\n---\n\n", $textLines),
-            'sources' => $matched->map(fn ($m) => [
+            'sources' => array_map(fn ($m) => [
                 'document_title' => $m['document_title'],
                 'document_id' => $m['document_id'],
                 'page' => $m['page'],
                 'section' => $m['section'],
-            ])->values()->all(),
+                'mode' => $m['mode'] ?? 'text',
+            ], $chunks),
         ];
     }
 
