@@ -203,10 +203,36 @@ Password: `password` (GANTI untuk produksi nyata!)
 
 ---
 
-## 10. Roadmap (v2)
+## 10. Roadmap (v2) — ✅ SELESAI
 
-1. Deteksi sektor terhubung UI (konfirmasi user) — backend sudah siap.
-2. Knowledge pack sektor lain (kesehatan, infrastruktur, dll).
-3. Retrieval semantik (pgvector) saat dokumen makin banyak.
-4. Rujukan sitasi (halaman/sumber asli) di tiap rekomendasi.
-5. Ganti akun demo + tambah otentikasi email verifikasi.
+Semua item v2 sudah diimplementasikan dan ter-deploy (tag `v2.0.0`):
+
+1. **✅ Deteksi sektor terhubung UI** — panel di halaman dokumen dengan tombol "Deteksi dengan AI", dropdown sektor, dan tombol "Konfirmasi Sektor". Status dibedakan: `Usulan AI` vs `Terkonfirmasi`.
+2. **✅ Knowledge pack 7 sektor** — Pendidikan, Pertanian, Kesehatan, Infrastruktur, Ekonomi, Lingkungan Hidup, Pariwisata (masing-masing 2 pack: Dimensi Hasil + Indikator Umum).
+3. **✅ Retrieval semantik (pgvector)** — ekstensi `vector`, kolom `embedding vector(1536)` + index HNSW di `document_chunks`, job `EmbedDocumentChunks`, `EmbeddingClient`, dan `SemanticSearchService` dengan **fallback otomatis ke pencarian teks** bila provider embedding tidak tersedia.
+4. **✅ Sitasi sumber** — retrieval mengembalikan konteks berlabel (`[D<id>-H<halaman>]` + nama dokumen + bagian) yang bisa dikutip AI.
+5. **✅ Import Renstra Kementan 2025-2029** — 268 halaman ter-ekstraksi ke 268 chunk, sektor Pertanian terkonfirmasi.
+
+### Catatan penting v2
+- **Provider `api.tokito.xyz` tidak menyediakan model embedding.** Arsitektur dirancang graceful: sistem otomatis memakai pencarian teks. Untuk mengaktifkan pencarian semantik, set `LLM_EMBEDDING_MODEL` di `.env` ke model embedding dari provider yang mendukung endpoint `/embeddings` (mis. `text-embedding-3-small`), lalu jalankan `php artisan tinker` + `EmbedDocumentChunks::dispatch($doc)` untuk meng-embed chunk yang ada.
+- **pgvector hanya di PostgreSQL.** Migrasi embedding dilewati otomatis di SQLite (test suite tetap jalan tanpa pgvector).
+
+## 11. Akun & Organisasi
+
+| Email | Role | Organisasi | Password |
+|---|---|---|---|
+| `admin@kemenag.test` | admin | Kementerian Agama (contoh) | `password` |
+| `planner@disdik.test` | planner | Dinas Pendidikan (contoh) | `password` |
+| `admin@kementan.test` | admin | **Kementerian Pertanian** | `password` |
+| `planner@kementan.test` | planner | **Kementerian Pertanian** | `password` |
+| `reviewer@kementan.test` | reviewer | **Kementerian Pertanian** | `password` |
+
+> ⚠️ Akun masih demo. Ganti password + tambah verifikasi email sebelum dipakai produksi nyata.
+
+## 12. Roadmap v3 (berikutnya)
+
+1. Aktifkan embedding (set `LLM_EMBEDDING_MODEL`) saat provider tersedia → pencarian semantik penuh.
+2. Knowledge pack dikelola lewat UI admin (sudah ada `KnowledgePackController`).
+3. Sinkronisasi lintas periode Renstra (bandingkan target antar-tahun).
+4. Integrasi ekspor ke format dokumen resmi (DOCX/PDF).
+5. Autentikasi produksi (verifikasi email, reset password, 2FA).
