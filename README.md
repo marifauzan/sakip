@@ -34,7 +34,8 @@ Aplikasi berbantuan AI untuk penyusunan **perjenjangan kinerja** instansi pemeri
 | **Rekomendasi AI** | Usulan turunan sasaran & indikator, berbasis dokumen + knowledge pack sektor, **lengkap dengan sitasi halaman**. |
 | **Knowledge Pack** | Konten kurasi per sektor (dimensi hasil + indikator umum) — bukan hasil pencarian web bebas. |
 | **Reviu & Persetujuan** | Komentar, approve/reject per simpul; status `ai_proposed` → `approved`. |
-| **Ekspor** | Markdown & JSON (hierarki + tabel indikator). |
+| **Editor Visual** | Pohon kinerja interaktif: geser simpul (posisi tersimpan) & tarik garis untuk menghubungkan. |
+| **Ekspor** | Markdown, JSON, **Word (.docx)**, dan **PDF** — hierarki sasaran + tabel indikator. |
 
 ---
 

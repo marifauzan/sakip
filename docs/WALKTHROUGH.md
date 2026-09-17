@@ -289,7 +289,82 @@ php artisan tinker
 
 ---
 
-## Bagian C — Alur Demo End-to-End (untuk Stakeholder)
+## Bagian C — Walkthrough v3
+
+### C.1 Editor Pohon Interaktif (Drag & Drop)
+
+**Yang dibangun:** canvas pohon yang bisa digeser (reposisi) dan dihubungkan (tarik garis).
+
+**Uji manual:**
+1. Buka `/kinerja/{id}`
+2. **Geser simpul** (drag) → posisi otomatis tersimpan
+3. **Tarik dari titik sambung satu simpul ke simpul lain** → hubungan dibuat
+4. Coba buat siklus (A→B lalu B→A) → harus **ditolak** dengan pesan error
+5. Refresh halaman → posisi simpul tetap seperti terakhir digeser
+
+**Uji otomatis:**
+```bash
+php artisan test --filter=NodePositionTest
+```
+
+**Verifikasi posisi tersimpan:**
+```bash
+php artisan tinker
+>>> $n = App\Models\Node::find(37);
+>>> [$n->pos_x, $n->pos_y];   // contoh: [555.0, 222.0]
+```
+
+**Di balik layar:**
+- `nodes.pos_x` / `nodes.pos_y` (nullable). Bila kosong → auto-layout dagre.
+- `POST /kinerja/{tree}/positions` — menyimpan banyak posisi sekaligus.
+- Node yang bukan milik tree tersebut **diabaikan** (cegah update lintas-tenant).
+- Pembuatan link lewat canvas memakai endpoint yang sama, jadi validasi siklus tetap berlaku.
+
+---
+
+### C.2 Ekspor DOCX & PDF
+
+**Yang dibangun:** ekspor ke format dokumen resmi (Word & PDF).
+
+**Uji manual:**
+1. Buka `/kinerja/{id}` → panel **Ekspor**
+2. Klik salah satu:
+   - **Markdown (.md)** — teks terstruktur
+   - **JSON** — data lengkap untuk integrasi
+   - **Word (.docx)** — siap diedit di Microsoft Word / LibreOffice
+   - **PDF (.pdf)** — siap cetak/distribusi
+3. Buka file hasil → periksa hierarki sasaran & tabel indikator
+
+**Uji otomatis:**
+```bash
+php artisan test --filter=ExportFormatTest
+```
+
+**Verifikasi via CLI:**
+```bash
+php artisan tinker
+>>> $t = App\Models\KinerjaTree::first();
+>>> $e = new App\Services\KinerjaExporter;
+>>> file_put_contents('/tmp/x.docx', $e->toDocx($t));   // diawali 'PK'
+>>> file_put_contents('/tmp/x.pdf', $e->toPdf($t));     // diawali '%PDF'
+```
+
+**DOCX — mengapa dibuat sendiri?**
+DOCX = ZIP berisi XML. Sama seperti keputusan di `DocumentExtractor`, kita menghindari pustaka pihak ketiga (PHPWord membawa kerentanan XXE). Isi ZIP minimal yang valid:
+```
+[Content_Types].xml
+_rels/.rels
+word/document.xml
+```
+
+**Keamanan ekspor:**
+- Semua input user di-**escape XML** (DOCX) dan **escape HTML** (PDF/HTML) → mencegah XML invalid & XSS.
+- `dompdf` dikonfigurasi `isRemoteEnabled: false` → tidak memuat resource eksternal.
+- Otorisasi tenant diverifikasi sebelum ekspor (403 bila bukan pemilik).
+
+---
+
+## Bagian D — Alur Demo End-to-End (untuk Stakeholder)
 
 Urutan yang paling meyakinkan untuk presentasi:
 
@@ -326,7 +401,7 @@ Urutan yang paling meyakinkan untuk presentasi:
 
 ---
 
-## Bagian D — Perintah Pengujian Ringkas
+## Bagian E — Perintah Pengujian Ringkas
 
 ```bash
 # Seluruh test

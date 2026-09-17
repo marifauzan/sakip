@@ -10,9 +10,38 @@ versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 ## [Unreleased]
 
 ### Rencana
-- Editor pohon kinerja visual (drag & drop) — untuk demo stakeholder
-- Ekspor DOCX/PDF (format dokumen resmi)
 - Aktivasi embedding (menunggu keputusan provider) — lihat `docs/EMBEDDING-NOTES.md`
+- Otentikasi produksi (verifikasi email, reset password, 2FA)
+- Manajemen knowledge pack via UI
+
+---
+
+## [3.0.0] — 2026-09-16
+
+Rilis v3: **pengalaman visual** dan **keluaran siap pakai**.
+
+### Added
+
+- **Editor pohon interaktif (drag & drop)**
+  - Geser simpul secara bebas; posisi disimpan otomatis (debounce 400ms)
+  - Tarik garis antar simpul untuk membuat hubungan — validasi anti-siklus tetap berlaku
+  - Kolom baru `nodes.pos_x`, `nodes.pos_y`; auto-layout dagre dipakai bila posisi belum diatur
+  - Endpoint `POST /kinerja/{tree}/positions`
+
+- **Ekspor DOCX & PDF**
+  - **DOCX** dibuat native dari ZIP + XML (tanpa pustaka pihak ketiga) — hierarki sasaran + tabel indikator
+  - **PDF** via `dompdf` 3.1.6 (semua advisory historis sudah ditambal di versi ini)
+  - `toHtml()` — sumber PDF, aman dari XSS (semua input user di-escape)
+  - Escaping XML yang benar untuk DOCX (mencegah XML invalid)
+
+- **Test baru (16)**: `NodePositionTest` (7), `ExportFormatTest` (9)
+  - Termasuk uji: posisi node lintas-tree ditolak, ekspor lintas-tenant 403, XSS escaping
+
+### Changed
+
+- `KinerjaExporter` — tambah `toDocx()`, `toPdf()`, `toHtml()`
+- `ReviewController@export` — dukung format `docx` & `pdf`
+- UI Ekspor — tombol Word dan PDF (sebelumnya hanya Markdown & JSON)
 
 ---
 
