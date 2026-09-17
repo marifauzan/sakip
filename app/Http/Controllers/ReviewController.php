@@ -44,18 +44,31 @@ class ReviewController extends Controller
 
         $format = $request->query('format', 'markdown');
 
-        $filename = 'sakip-'.str()->slug($tree->name).'.'.($format === 'json' ? 'json' : 'md');
+        $ext = match ($format) {
+            'json' => 'json',
+            'docx' => 'docx',
+            'pdf' => 'pdf',
+            default => 'md',
+        };
 
-        if ($format === 'json') {
-            $content = $exporter->toJson($tree);
-            $contentType = 'application/json';
-        } else {
-            $content = $exporter->toMarkdown($tree);
-            $contentType = 'text/markdown';
-        }
+        $filename = 'sakip-'.str()->slug($tree->name).'.'.$ext;
+
+        $content = match ($format) {
+            'json' => $exporter->toJson($tree),
+            'docx' => $exporter->toDocx($tree),
+            'pdf' => $exporter->toPdf($tree),
+            default => $exporter->toMarkdown($tree),
+        };
+
+        $contentType = match ($format) {
+            'json' => 'application/json',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'pdf' => 'application/pdf',
+            default => 'text/markdown',
+        };
 
         return response()->streamDownload(
-            fn () => print ($content),
+            fn () => print($content),
             $filename,
             ['Content-Type' => $contentType]
         );

@@ -2051,6 +2051,44 @@
                         </div>
                         <ChevronRight class="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition-colors mt-1" />
                     </a>
+
+                    <a
+                        href={`/kinerja/${tree.id}/export?format=docx`}
+                        target="_blank"
+                        class="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/20 transition-all group block"
+                    >
+                        <div class="h-9 w-9 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <FileText class="w-4 h-4" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-slate-900 group-hover:text-blue-900">
+                                Dokumen Word (.docx)
+                            </p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">
+                                Siap diedit di Microsoft Word / LibreOffice untuk lampiran resmi instansi.
+                            </p>
+                        </div>
+                        <ChevronRight class="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition-colors mt-1" />
+                    </a>
+
+                    <a
+                        href={`/kinerja/${tree.id}/export?format=pdf`}
+                        target="_blank"
+                        class="flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 hover:border-rose-500 hover:bg-rose-50/20 transition-all group block"
+                    >
+                        <div class="h-9 w-9 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                            <FileText class="w-4 h-4" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-slate-900 group-hover:text-rose-900">
+                                Dokumen PDF (.pdf)
+                            </p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">
+                                Format cetak siap distribusi untuk rapat atau dokumentasi final.
+                            </p>
+                        </div>
+                        <ChevronRight class="w-4 h-4 text-slate-300 group-hover:text-rose-600 transition-colors mt-1" />
+                    </a>
                 </div>
 
                 <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
